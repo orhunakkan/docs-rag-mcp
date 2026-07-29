@@ -2,12 +2,15 @@ import { search } from '@orama/orama';
 import type { Db } from './buildIndex.js';
 import { embedText } from './embed.js';
 import { dedupeByContent, overfetchLimit } from './dedupe.js';
+import { DEFAULT_TUNING, type Tuning } from './tuning.js';
 import type { DocType, Language } from '../types.js';
 
 export interface SearchOptions {
   limit?: number;
   docType?: DocType;
   language?: Language;
+  /** Override the committed tuning. Used by scripts/benchmark.ts --sweep. */
+  tuning?: Tuning;
 }
 
 export interface SearchResult {
@@ -25,6 +28,7 @@ export interface SearchResult {
 
 export async function hybridSearch(db: Db, queryText: string, options: SearchOptions = {}): Promise<SearchResult[]> {
   const limit = options.limit ?? 5;
+  const tuning = options.tuning ?? DEFAULT_TUNING;
   const vector = await embedText(queryText);
   const where: Record<string, { eq: string }> = {};
   if (options.docType) where.docType = { eq: options.docType };
@@ -35,14 +39,11 @@ export async function hybridSearch(db: Db, queryText: string, options: SearchOpt
     term: queryText,
     vector: { value: vector, property: 'embedding' },
     properties: ['title', 'content'],
-    boost: { title: 3 },
-    // Orama's default vector similarity cutoff (0.8) is tuned for larger
-    // embedding models and silently drops every result for short-text
-    // MiniLM embeddings, degenerating "hybrid" into plain keyword search.
-    // Lowered + rebalanced toward vector after empirically checking real
-    // queries against this corpus (see docs/ideas/playwright-rag-docs-mvp.md).
-    similarity: 0.1,
-    hybridWeights: { text: 0.3, vector: 0.7 },
+    boost: { title: tuning.titleBoost },
+    // See src/search/tuning.ts for what these are and why they differ so far
+    // from Orama's defaults; scripts/benchmark.ts is what justifies changing them.
+    similarity: tuning.similarity,
+    hybridWeights: { text: tuning.text, vector: tuning.vector },
     where: Object.keys(where).length > 0 ? where : undefined,
     // Over-fetch so collapsing identical content can't return fewer than `limit`.
     limit: overfetchLimit(limit)
