@@ -91,8 +91,9 @@ Second overview section with the same heading text.
 
   it('namespaces ids by section so the same fileSlug in different sections never collides', () => {
     const markdown = `# Closures\n\n## Lexical scoping\n\nBody.\n`;
-    const guideChunk = chunkMarkdown(markdown, { ...meta, section: 'guide', fileSlug: 'closures' })[1];
-    const referenceChunk = chunkMarkdown(markdown, { ...meta, section: 'reference', fileSlug: 'closures' })[1];
+    const byTitle = (chunks: ReturnType<typeof chunkMarkdown>) => chunks.find((c) => c.title === 'Lexical scoping')!;
+    const guideChunk = byTitle(chunkMarkdown(markdown, { ...meta, section: 'guide', fileSlug: 'closures' }));
+    const referenceChunk = byTitle(chunkMarkdown(markdown, { ...meta, section: 'reference', fileSlug: 'closures' }));
 
     expect(guideChunk.id).toBe('javascript/guide/closures#lexical-scoping');
     expect(referenceChunk.id).toBe('javascript/reference/closures#lexical-scoping');

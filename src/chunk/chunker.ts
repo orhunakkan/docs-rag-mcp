@@ -2,7 +2,7 @@ import GithubSlugger from 'github-slugger';
 import { toString as mdastToString } from 'mdast-util-to-string';
 import { remark } from 'remark';
 import type { Chunk, DocType, Language } from '../types.js';
-import { hasBodyAfterHeading } from './emptySection.js';
+import { hasBodyAfterHeading, hasContentBeyondAttribution } from './emptySection.js';
 import { resolveHeading, stripSlugComments } from './slugify.js';
 
 export interface ChunkMeta {
@@ -67,7 +67,7 @@ export function chunkMarkdown(markdown: string, meta: ChunkMeta): Chunk[] {
   const chunks: Chunk[] = [];
   const introEnd = boundaries.length > 0 ? boundaries[0].offset : markdown.length;
   const introContent = stripSlugComments(markdown.slice(0, introEnd)).trim();
-  if (introContent.length > 0) {
+  if (hasContentBeyondAttribution(introContent)) {
     chunks.push({
       id: `${meta.language}/${meta.docType}/${meta.fileSlug}#_intro`,
       title: docTitle,

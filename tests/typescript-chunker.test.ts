@@ -115,8 +115,9 @@ Second overview section with the same heading text.
 
   it('namespaces ids by section so the same fileSlug in different sections never collides', () => {
     const markdown = `# Enums\n\n## Numeric enums\n\nBody.\n`;
-    const handbookChunk = chunkMarkdown(markdown, { ...meta, section: 'handbook-v2', fileSlug: 'enums' })[1];
-    const referenceChunk = chunkMarkdown(markdown, { ...meta, section: 'reference', fileSlug: 'enums' })[1];
+    const byTitle = (chunks: ReturnType<typeof chunkMarkdown>) => chunks.find((c) => c.title === 'Numeric enums')!;
+    const handbookChunk = byTitle(chunkMarkdown(markdown, { ...meta, section: 'handbook-v2', fileSlug: 'enums' }));
+    const referenceChunk = byTitle(chunkMarkdown(markdown, { ...meta, section: 'reference', fileSlug: 'enums' }));
 
     expect(handbookChunk.id).toBe('typescript/handbook-v2/enums#numeric-enums');
     expect(referenceChunk.id).toBe('typescript/reference/enums#numeric-enums');

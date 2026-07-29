@@ -90,8 +90,11 @@ Second overview section with the same heading text.
 
   it('namespaces ids and source URLs by module', () => {
     const markdown = `# Module\n\n## Section\n\nBody.\n`;
-    const fsChunk = chunkMarkdown(markdown, { ...meta, module: 'fs' })[1];
-    const httpChunk = chunkMarkdown(markdown, { ...meta, module: 'http', sourceUrl: 'https://nodejs.org/docs/v24.18.0/api/http.html' })[1];
+    const byTitle = (chunks: ReturnType<typeof chunkMarkdown>) => chunks.find((c) => c.title === 'Section')!;
+    const fsChunk = byTitle(chunkMarkdown(markdown, { ...meta, module: 'fs' }));
+    const httpChunk = byTitle(
+      chunkMarkdown(markdown, { ...meta, module: 'http', sourceUrl: 'https://nodejs.org/docs/v24.18.0/api/http.html' })
+    );
 
     expect(fsChunk.id).toBe('node/fs#section');
     expect(httpChunk.id).toBe('node/http#section');

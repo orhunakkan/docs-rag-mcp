@@ -1,7 +1,7 @@
 import GithubSlugger from 'github-slugger';
 import { toString as mdastToString } from 'mdast-util-to-string';
 import { remark } from 'remark';
-import { hasBodyAfterHeading } from '../chunk/emptySection.js';
+import { hasBodyAfterHeading, hasContentBeyondAttribution } from '../chunk/emptySection.js';
 import type { TsChunk, TsSection } from './types.js';
 
 export interface TsChunkMeta {
@@ -65,7 +65,7 @@ export function chunkMarkdown(markdown: string, meta: TsChunkMeta): TsChunk[] {
   const chunks: TsChunk[] = [];
   const introEnd = boundaries.length > 0 ? boundaries[0].offset : markdown.length;
   const introContent = markdown.slice(0, introEnd).trim();
-  if (introContent.length > 0) {
+  if (hasContentBeyondAttribution(introContent)) {
     chunks.push({
       id: `typescript/${meta.section}/${meta.fileSlug}#_intro`,
       title: docTitle,

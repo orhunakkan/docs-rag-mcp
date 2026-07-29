@@ -136,6 +136,67 @@ Second method.
     expect(ids).toContain('nodejs/api/class-browsercontext#browser-context-wait-for-console-message-1');
   });
 
+  it('drops an intro chunk holding only the H1 and the buildFileContent attribution', () => {
+    // A page going straight from its H1 into a section heading: the intro slice
+    // is a title plus a source link, which can only displace a real chunk.
+    const markdown = `# Navigation
+
+> **Source:** [playwright.dev/agent-cli/commands/navigation](https://playwright.dev/agent-cli/commands/navigation)
+
+---
+
+## Navigating
+
+Body text.
+`;
+    const chunks = chunkMarkdown(markdown, meta);
+
+    expect(chunks.some((c) => c.id.endsWith('#_intro'))).toBe(false);
+    expect(chunks.some((c) => c.title === 'Navigating')).toBe(true);
+  });
+
+  it('keeps an intro chunk that has real prose alongside the attribution', () => {
+    const markdown = `# Locators
+
+> **Source:** [playwright.dev/docs/locators](https://playwright.dev/docs/locators)
+
+---
+
+Locators are the central piece of Playwright's auto-waiting.
+
+## Quick guide
+
+Body.
+`;
+    const chunks = chunkMarkdown(markdown, meta);
+    const intro = chunks.find((c) => c.id.endsWith('#_intro'));
+
+    expect(intro).toBeDefined();
+    expect(intro!.content).toContain("central piece of Playwright's auto-waiting");
+  });
+
+  it('keeps an intro whose only body is a code fence', () => {
+    const markdown = `# Install
+
+> **Source:** [playwright.dev/docs/intro](https://playwright.dev/docs/intro)
+
+---
+
+\`\`\`bash
+npm init playwright@latest
+\`\`\`
+
+## Next
+
+Body.
+`;
+    const chunks = chunkMarkdown(markdown, meta);
+    const intro = chunks.find((c) => c.id.endsWith('#_intro'));
+
+    expect(intro).toBeDefined();
+    expect(intro!.content).toContain('npm init playwright@latest');
+  });
+
   it('drops a structural heading whose section body is empty (e.g. api "## Methods" above its first ###)', () => {
     const markdown = `# Page
 
