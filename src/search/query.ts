@@ -1,6 +1,7 @@
 import { search } from '@orama/orama';
 import type { Db } from './buildIndex.js';
 import { embedText } from './embed.js';
+import { dedupeByContent, overfetchLimit } from './dedupe.js';
 import type { DocType, Language } from '../types.js';
 
 export interface SearchOptions {
@@ -18,9 +19,12 @@ export interface SearchResult {
   language: Language;
   docType: DocType;
   sourceUrl: string;
+  /** Other URLs carrying byte-identical content, collapsed by dedupeByContent. */
+  alsoAt?: string[];
 }
 
 export async function hybridSearch(db: Db, queryText: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+  const limit = options.limit ?? 5;
   const vector = await embedText(queryText);
   const where: Record<string, { eq: string }> = {};
   if (options.docType) where.docType = { eq: options.docType };
@@ -40,10 +44,11 @@ export async function hybridSearch(db: Db, queryText: string, options: SearchOpt
     similarity: 0.1,
     hybridWeights: { text: 0.3, vector: 0.7 },
     where: Object.keys(where).length > 0 ? where : undefined,
-    limit: options.limit ?? 5
+    // Over-fetch so collapsing identical content can't return fewer than `limit`.
+    limit: overfetchLimit(limit)
   });
 
-  return results.hits.map((hit) => ({
+  const hits = results.hits.map((hit) => ({
     id: hit.document.id,
     score: hit.score,
     title: hit.document.title,
@@ -53,4 +58,6 @@ export async function hybridSearch(db: Db, queryText: string, options: SearchOpt
     docType: hit.document.docType as DocType,
     sourceUrl: hit.document.sourceUrl
   }));
+
+  return dedupeByContent(hits, limit);
 }

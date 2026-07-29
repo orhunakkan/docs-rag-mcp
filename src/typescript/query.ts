@@ -1,5 +1,6 @@
 import { search } from '@orama/orama';
 import { embedText } from '../search/embed.js';
+import { dedupeByContent, overfetchLimit } from '../search/dedupe.js';
 import type { TsDb } from './buildIndex.js';
 import type { TsSection } from './types.js';
 
@@ -16,9 +17,12 @@ export interface TsSearchResult {
   content: string;
   section: TsSection;
   sourceUrl: string;
+  /** Other URLs carrying byte-identical content, collapsed by dedupeByContent. */
+  alsoAt?: string[];
 }
 
 export async function hybridSearch(db: TsDb, queryText: string, options: TsSearchOptions = {}): Promise<TsSearchResult[]> {
+  const limit = options.limit ?? 5;
   const vector = await embedText(queryText);
   const results = await search(db, {
     mode: 'hybrid',
@@ -32,10 +36,10 @@ export async function hybridSearch(db: TsDb, queryText: string, options: TsSearc
     similarity: 0.1,
     hybridWeights: { text: 0.3, vector: 0.7 },
     where: options.section ? { section: { eq: options.section } } : undefined,
-    limit: options.limit ?? 5
+    limit: overfetchLimit(limit)
   });
 
-  return results.hits.map((hit) => ({
+  const hits = results.hits.map((hit) => ({
     id: hit.document.id,
     score: hit.score,
     title: hit.document.title,
@@ -44,4 +48,6 @@ export async function hybridSearch(db: TsDb, queryText: string, options: TsSearc
     section: hit.document.section as TsSection,
     sourceUrl: hit.document.sourceUrl
   }));
+
+  return dedupeByContent(hits, limit);
 }

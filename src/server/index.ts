@@ -49,6 +49,16 @@ function getNodeDb(): Promise<NodeDb> {
   return nodeDbPromise;
 }
 
+/**
+ * Playwright and MDN document the same content under several URLs (a method
+ * exposed on Page, Frame, Locator and FrameLocator, say). Those copies are
+ * collapsed to one result; this reports the URLs that were folded in, so the
+ * agent still learns the API exists on all of them.
+ */
+function formatAlsoAt(alsoAt: string[] | undefined): string {
+  return alsoAt && alsoAt.length > 0 ? `\nAlso documented at: ${alsoAt.join(', ')}` : '';
+}
+
 function formatResults(results: SearchResult[]): string {
   if (results.length === 0) {
     return 'No matching Playwright documentation found.';
@@ -56,7 +66,7 @@ function formatResults(results: SearchResult[]): string {
   return results
     .map((result) => {
       const path = result.headingPath ? `${result.title} > ${result.headingPath}` : result.title;
-      return `### [${result.language}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}`;
+      return `### [${result.language}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}${formatAlsoAt(result.alsoAt)}`;
     })
     .join('\n\n---\n\n');
 }
@@ -68,7 +78,7 @@ function formatTsResults(results: TsSearchResult[]): string {
   return results
     .map((result) => {
       const path = result.headingPath ? `${result.title} > ${result.headingPath}` : result.title;
-      return `### [${result.section}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}`;
+      return `### [${result.section}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}${formatAlsoAt(result.alsoAt)}`;
     })
     .join('\n\n---\n\n');
 }
@@ -80,7 +90,7 @@ function formatJsResults(results: JsSearchResult[]): string {
   return results
     .map((result) => {
       const path = result.headingPath ? `${result.title} > ${result.headingPath}` : result.title;
-      return `### [${result.section}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}`;
+      return `### [${result.section}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}${formatAlsoAt(result.alsoAt)}`;
     })
     .join('\n\n---\n\n');
 }
@@ -92,7 +102,7 @@ function formatNodeResults(results: NodeSearchResult[]): string {
   return results
     .map((result) => {
       const path = result.headingPath ? `${result.title} > ${result.headingPath}` : result.title;
-      return `### [${result.module}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}`;
+      return `### [${result.module}] ${path}\n\n${result.content}\n\nSource: ${result.sourceUrl}${formatAlsoAt(result.alsoAt)}`;
     })
     .join('\n\n---\n\n');
 }
