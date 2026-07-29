@@ -81,7 +81,7 @@ expect(await tweetHandle.evaluate(node => node.innerText)).toBe('10 retweets');
 - `options` Object *(optional)*
   - `exposeFunctions` boolean *(optional)* 
     
-    When set to `true`, functions passed inside [arg](/api/class-jshandle.mdx#js-handle-evaluate-option-arg) are exposed in the page and can be called from the page function. Calling one returns a Promise of its result. The page-side functions are scoped to the execution context they were passed to and disappear when the page navigates. Defaults to `false`, in which case functions are not serializable and passing one throws an error, as before.
+    When set to `true`, functions passed inside [arg](/api/class-jshandle.mdx#js-handle-evaluate-option-arg) are exposed in the page and can be called from the page function. Calling one returns a Promise of its result. Under the hood, each function is exposed via [page.exposeFunction()](/api/class-page.mdx#page-expose-function), so it is technically accessible from all frames and worlds of the page. Exposed functions are cleared upon the top-level navigation. Defaults to `false`, in which case functions are not serializable and passing one throws an error.
 
 **Returns**
 - Promise<Serializable>
@@ -119,7 +119,7 @@ await jsHandle.evaluateHandle(pageFunction, arg, options);
 - `options` Object *(optional)*
   - `exposeFunctions` boolean *(optional)* 
     
-    When set to `true`, functions passed inside [arg](/api/class-jshandle.mdx#js-handle-evaluate-handle-option-arg) are exposed in the page and can be called from the page function. Calling one returns a Promise of its result. The page-side functions are scoped to the execution context they were passed to and disappear when the page navigates. Defaults to `false`, in which case functions are not serializable and passing one throws an error, as before.
+    When set to `true`, functions passed inside [arg](/api/class-jshandle.mdx#js-handle-evaluate-handle-option-arg) are exposed in the page and can be called from the page function. Calling one returns a Promise of its result. Under the hood, each function is exposed via [page.exposeFunction()](/api/class-page.mdx#page-expose-function), so it is technically accessible from all frames and worlds of the page. Exposed functions are cleared upon the top-level navigation. Defaults to `false`, in which case functions are not serializable and passing one throws an error.
 
 **Returns**
 - Promise<JSHandle>

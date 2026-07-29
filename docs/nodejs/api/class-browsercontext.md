@@ -118,6 +118,10 @@ The order of evaluation of multiple scripts installed via [browserContext.addIni
 - `arg` Serializable *(optional)*
   
   Optional argument to pass to [script](/api/class-browsercontext.mdx#browser-context-add-init-script-option-script) (only supported when passing a function).
+- `options` Object *(optional)*
+  - `exposeFunctions` boolean *(optional)* 
+    
+    When set to `true`, functions passed inside [arg](/api/class-browsercontext.mdx#browser-context-add-init-script-option-arg) are exposed in the page and can be called from the init script. Calling one returns a Promise of its result. Under the hood, each function is exposed via [page.exposeFunction()](/api/class-page.mdx#page-expose-function), so it is technically accessible from all frames and worlds of the page. Unlike functions passed to [page.evaluate()](/api/class-page.mdx#page-evaluate), functions passed to an init script are exposed in every new document, so they survive navigations. Defaults to `false`, in which case functions are not serializable and are silently dropped.
 
 **Returns**
 - Promise<Disposable>
