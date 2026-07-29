@@ -1,6 +1,6 @@
 {
-  "name": "playwright-rag-docs",
-  "version": "1.0.0",
+  "name": "docs-rag-mcp",
+  "version": "1.1.0",
   "description": "Local-only RAG pipeline over Playwright (Node.js/Python/Java/.NET), TypeScript, JavaScript (MDN), and Node.js runtime documentation, exposed as MCP server tools.",
   "license": "ISC",
   "author": "Orhun Akkan",

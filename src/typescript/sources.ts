@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { DOCS_DIR } from '../paths.js';
 import type { TsSection, TsSourceDescriptor } from './types.js';
 
 export const TYPESCRIPT_WEBSITE_REPO = 'https://github.com/microsoft/TypeScript-Website.git';
@@ -24,14 +26,14 @@ export const SOURCES: TsSourceDescriptor[] = [
     section: 'general',
     repoSubdir: DOCS_ROOT,
     recursive: false,
-    outputDir: 'docs/typescript/general'
+    outputDir: join(DOCS_DIR, 'typescript', 'general')
   },
   ...RECURSIVE_SECTIONS.map(
     (section): TsSourceDescriptor => ({
       section,
       repoSubdir: `${DOCS_ROOT}/${section}`,
       recursive: true,
-      outputDir: `docs/typescript/${section}`
+      outputDir: join(DOCS_DIR, 'typescript', section)
     })
   )
 ];

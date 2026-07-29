@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { DOCS_DIR } from '../paths.js';
 import type { Language, SourceDescriptor } from '../types.js';
 
 export const PLAYWRIGHT_DEV_REPO = 'https://github.com/microsoft/playwright.dev.git';
@@ -25,7 +27,7 @@ function perLanguageSources({ language, docsSubdir, siteLangPrefix }: LanguageCo
       repoSubdir: `${docsSubdir}/api`,
       recursive: false,
       siteUrlPrefix: `${siteLangPrefix}/docs/api`,
-      outputDir: `docs/${language}/api`
+      outputDir: join(DOCS_DIR, language, 'api')
     },
     {
       language,
@@ -35,7 +37,7 @@ function perLanguageSources({ language, docsSubdir, siteLangPrefix }: LanguageCo
       repoSubdir: docsSubdir,
       recursive: false,
       siteUrlPrefix: `${siteLangPrefix}/docs`,
-      outputDir: `docs/${language}/guides`
+      outputDir: join(DOCS_DIR, language, 'guides')
     }
   ];
 }
@@ -47,7 +49,7 @@ export const SOURCES: SourceDescriptor[] = [
     repoSubdir: 'agent-cli',
     recursive: true,
     siteUrlPrefix: '/agent-cli',
-    outputDir: 'docs/nodejs/agent-cli'
+    outputDir: join(DOCS_DIR, 'nodejs', 'agent-cli')
   },
   {
     language: 'nodejs',
@@ -55,7 +57,7 @@ export const SOURCES: SourceDescriptor[] = [
     repoSubdir: 'mcp',
     recursive: true,
     siteUrlPrefix: '/mcp',
-    outputDir: 'docs/nodejs/mcp'
+    outputDir: join(DOCS_DIR, 'nodejs', 'mcp')
   },
   ...LANGUAGES.flatMap(perLanguageSources)
 ];

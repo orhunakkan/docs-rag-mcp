@@ -11,7 +11,7 @@ import { loadIndex as loadNodeIndex, type NodeDb } from '../node/buildIndex.js';
 import { hybridSearch as nodeHybridSearch, type NodeSearchResult } from '../node/query.js';
 import { NODE_TAG } from '../node/sources.js';
 
-const server = new McpServer({ name: 'playwright-rag-docs', version: '1.0.0' });
+const server = new McpServer({ name: 'docs-rag-mcp', version: '1.1.0' });
 
 let dbPromise: Promise<Db> | undefined;
 

@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { DOCS_DIR } from '../paths.js';
 import type { JsSourceDescriptor } from './types.js';
 
 export const MDN_CONTENT_REPO = 'https://github.com/mdn/content.git';
@@ -11,18 +13,18 @@ export const SOURCES: JsSourceDescriptor[] = [
     section: 'general',
     repoSubdir: DOCS_ROOT,
     recursive: false,
-    outputDir: 'docs/javascript/general'
+    outputDir: join(DOCS_DIR, 'javascript', 'general')
   },
   {
     section: 'guide',
     repoSubdir: `${DOCS_ROOT}/guide`,
     recursive: true,
-    outputDir: 'docs/javascript/guide'
+    outputDir: join(DOCS_DIR, 'javascript', 'guide')
   },
   {
     section: 'reference',
     repoSubdir: `${DOCS_ROOT}/reference`,
     recursive: true,
-    outputDir: 'docs/javascript/reference'
+    outputDir: join(DOCS_DIR, 'javascript', 'reference')
   }
 ];

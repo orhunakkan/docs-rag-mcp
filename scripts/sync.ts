@@ -1,4 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { DATA_DIR, toRepoRelative } from '../src/paths.js';
 import { chunkMarkdown } from '../src/chunk/chunker.js';
 import { cleanupClone, cloneDocsRepo } from '../src/ingest/clone.js';
 import { normalizeMdx } from '../src/ingest/normalize.js';
@@ -31,7 +33,7 @@ async function main() {
         const sourceUrl = buildSourceUrl(source, rawDoc.relPath);
         const fileContent = buildFileContent(body, sourceUrl);
         const fileSlug = flattenRelPath(rawDoc.relPath);
-        const outPath = (await writeNormalizedFile(source.outputDir, fileSlug, fileContent)).split('\\').join('/');
+        const outPath = toRepoRelative(await writeNormalizedFile(source.outputDir, fileSlug, fileContent));
 
         const chunks = chunkMarkdown(fileContent, {
           language: source.language,
@@ -65,8 +67,8 @@ async function main() {
     chunkCount: allChunks.length,
     counts
   };
-  await mkdir('data', { recursive: true });
-  await writeFile('data/sync-meta.json', JSON.stringify(meta, null, 2), 'utf8');
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(join(DATA_DIR, 'sync-meta.json'), JSON.stringify(meta, null, 2), 'utf8');
 
   console.log('Sync complete.');
   console.log(`  commit: ${commitSha}`);

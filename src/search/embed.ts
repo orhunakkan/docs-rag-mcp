@@ -1,9 +1,10 @@
 import { env, pipeline } from '@huggingface/transformers';
+import { MODEL_CACHE_DIR } from '../paths.js';
 
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
 export const EMBEDDING_DIM = 384;
 
-env.cacheDir = '.cache/models/';
+env.cacheDir = MODEL_CACHE_DIR;
 
 type FeatureExtractor = Awaited<ReturnType<typeof pipeline<'feature-extraction'>>>;
 

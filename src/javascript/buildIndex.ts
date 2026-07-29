@@ -1,12 +1,13 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { create, insertMultiple, load, save, type RawData } from '@orama/orama';
 import { decode, encode } from '@msgpack/msgpack';
+import { INDEX_DIR } from '../paths.js';
 import { embedBatch } from '../search/embed.js';
 import type { JsChunk } from './types.js';
 import { schema } from './schema.js';
 
-export const INDEX_PATH = 'data/index/javascript.msp';
+export const INDEX_PATH = join(INDEX_DIR, 'javascript.msp');
 
 const EMBED_BATCH_SIZE = 32;
 

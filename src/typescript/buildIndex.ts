@@ -1,12 +1,13 @@
 import { mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { create, insertMultiple } from '@orama/orama';
 import { persistToFile, restoreFromFile } from '@orama/plugin-data-persistence/server';
+import { INDEX_DIR } from '../paths.js';
 import { embedBatch } from '../search/embed.js';
 import type { TsChunk } from './types.js';
 import { schema } from './schema.js';
 
-export const INDEX_PATH = 'data/index/typescript.msp';
+export const INDEX_PATH = join(INDEX_DIR, 'typescript.msp');
 
 const EMBED_BATCH_SIZE = 32;
 

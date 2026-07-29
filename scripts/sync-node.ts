@@ -1,4 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { DATA_DIR, toRepoRelative } from '../src/paths.js';
 import { chunkMarkdown } from '../src/node/chunker.js';
 import { cleanupClone, cloneDocsRepo } from '../src/ingest/clone.js';
 import { normalizeNodeDoc } from '../src/node/normalize.js';
@@ -24,7 +26,7 @@ async function main() {
       const body = normalizeNodeDoc(rawDoc.raw);
       const sourceUrl = `${NODE_DOCS_BASE}/${rawDoc.module}.html`;
       const fileContent = buildFileContent(body, sourceUrl);
-      const outPath = (await writeNormalizedFile(OUTPUT_DIR, rawDoc.module, fileContent)).split('\\').join('/');
+      const outPath = toRepoRelative(await writeNormalizedFile(OUTPUT_DIR, rawDoc.module, fileContent));
 
       const chunks = chunkMarkdown(fileContent, {
         module: rawDoc.module,
@@ -51,8 +53,8 @@ async function main() {
     docCount,
     chunkCount: allChunks.length
   };
-  await mkdir('data', { recursive: true });
-  await writeFile('data/sync-meta-node.json', JSON.stringify(meta, null, 2), 'utf8');
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(join(DATA_DIR, 'sync-meta-node.json'), JSON.stringify(meta, null, 2), 'utf8');
 
   console.log('Sync complete.');
   console.log(`  tag: ${NODE_TAG}`);

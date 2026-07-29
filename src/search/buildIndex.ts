@@ -1,12 +1,13 @@
 import { mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { create, insertMultiple } from '@orama/orama';
 import { persistToFile, restoreFromFile } from '@orama/plugin-data-persistence/server';
 import type { Chunk } from '../types.js';
+import { INDEX_DIR } from '../paths.js';
 import { embedBatch } from './embed.js';
 import { schema } from './schema.js';
 
-export const INDEX_PATH = 'data/index/playwright-nodejs.msp';
+export const INDEX_PATH = join(INDEX_DIR, 'playwright-nodejs.msp');
 
 const EMBED_BATCH_SIZE = 32;
 

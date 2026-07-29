@@ -112,6 +112,7 @@ docs/
   node-runtime/api/                    Human-readable Node.js runtime docs (distinct from docs/nodejs/, Playwright's Node.js binding docs)
   ideas/                               Design rationale (idea-refine one-pagers)
 src/
+  paths.ts                            Repo-root-anchored paths (data/, docs/, .cache/) — every path derives from here, never from cwd
   types.ts                            Shared Playwright pipeline types
   ingest/                             Clone, walk, normalize, write — Playwright + shared helpers
   chunk/                              Heading-based chunker + slug resolution (Playwright)
@@ -169,21 +170,37 @@ It communicates over stdio and is meant to be launched by an MCP client, not use
 
 ## Connecting an MCP client
 
-Add an entry to your MCP client's config (Claude Code, Claude Desktop, Cursor, etc.), pointing at this repo with an absolute path:
+The server resolves its index and model cache relative to **its own location**, not the working directory it's launched from, so one registration works from every project you open — no per-project setup, and no `cwd` field to keep in sync.
+
+For Claude Code, register it once at **user scope** so it's available in every project:
+
+```bash
+claude mcp add -s user docs-rag-mcp -- \
+  node /absolute/path/to/docs-rag-mcp/node_modules/tsx/dist/cli.mjs \
+       /absolute/path/to/docs-rag-mcp/src/server/index.ts
+```
+
+`-s user` is the part that makes it global — `claude mcp add` defaults to `local`, which registers the server for the current project only.
+
+For clients configured by JSON (Claude Desktop, Cursor, etc.), the equivalent entry:
 
 ```json
 {
   "mcpServers": {
     "docs-rag-mcp": {
-      "command": "npx",
-      "args": ["tsx", "src/server/index.ts"],
-      "cwd": "/absolute/path/to/docs-rag-mcp"
+      "command": "node",
+      "args": [
+        "/absolute/path/to/docs-rag-mcp/node_modules/tsx/dist/cli.mjs",
+        "/absolute/path/to/docs-rag-mcp/src/server/index.ts"
+      ]
     }
   }
 }
 ```
 
-Once connected, `search_playwright_docs`, `search_typescript_docs`, `search_javascript_docs`, and `search_node_runtime_docs` are all available as tools the agent can call.
+Both forms invoke this repo's own `tsx` binary directly rather than going through `npx tsx`. That's deliberate: `npx` resolves `tsx` from the *current* directory, so launched from another project it can't see this repo's local copy and goes looking for a global or freshly-fetched one. Naming the binary by path removes both the ambiguity and the startup round-trip. It also sidesteps the fact that `claude mcp add` has no `--cwd` flag, so a user-scope registration couldn't set one anyway.
+
+Once connected, `search_playwright_docs`, `search_typescript_docs`, `search_javascript_docs`, and `search_node_runtime_docs` are all available as tools the agent can call, from any project.
 
 To sanity-check the server without a full client, use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) CLI:
 
@@ -271,6 +288,7 @@ Before changing `src/ingest/normalize.ts`, `src/chunk/chunker.ts`, or their Type
 ## Design notes
 
 - **Fully local.** Embeddings run on-device via [transformers.js](https://github.com/huggingface/transformers.js); the search index is a single file on disk. No API keys, no network calls at query time.
+- **Every path is anchored to the repo root, never to `process.cwd()`.** `src/paths.ts` derives `REPO_ROOT` from its own `import.meta.url`; the index paths, the docs output dirs, and the embedding model's cache dir all build on it. This is what makes one user-scope registration serve every project: MCP clients launch a stdio server with the *opened project* as cwd, so cwd-relative paths would resolve against whatever repo the user happens to have open. The failure modes it prevents are asymmetric — a missing index is a loud `ENOENT`, but a cwd-relative model cache silently re-downloads ~90 MB into the user's project on the first query, since `hybridSearch` embeds the query text on every call. Chunks still record `sourceFile` as a repo-*relative* path via `toRepoRelative()`, because that value is persisted into the index and an absolute path there would bake one machine's layout into the artifact. Note that `REPO_ROOT` is `join(HERE, '..')`, which assumes this file runs from source at `<root>/src/paths.ts` — true today because there's no build step, but a `dist/` build would change that depth.
 - **Hybrid search tuning matters more than it looks.** Orama's default vector-similarity cutoff (0.8) is tuned for larger embedding models and silently drops nearly every result for this MiniLM model's short-text embeddings — degenerating "hybrid" search into plain keyword search. `src/search/query.ts` lowers this to `0.1` and rebalances the blend toward vector (`0.7`) after empirically checking real queries against the corpus. If you swap the embedding model, re-validate this.
 - **Chunk IDs are namespaced** by language/section specifically to avoid collisions — e.g. Node's and Python's `class-page.mdx` `locator()` method would otherwise produce the identical id `api/class-page#page-locator`.
 - **Explicit anchor slugs aren't always unique upstream.** One real example: .NET's `class-browsercontext.mdx` gives two *different* methods (`RunAndWaitForConsoleMessageAsync` and `WaitForConsoleMessageAsync`) the same literal anchor. The chunker runs every slug (explicit or auto-derived) through the same dedup logic to handle this.
@@ -298,7 +316,7 @@ Before changing `src/ingest/normalize.ts`, `src/chunk/chunker.ts`, or their Type
 
 **A tool call returns "No matching documentation found."** The index likely hasn't been built yet, or the server started before a resync finished. Run the relevant `npm run sync:*` command, then restart `npm run mcp`.
 
-**`ENOENT` on `data/index/*.msp` when starting the server.** Same cause — the server expects a pre-built index; it doesn't build one on startup.
+**`ENOENT` on `data/index/*.msp` when starting the server.** Either the index was never built (run the relevant `npm run sync:*`), or the repo has moved since it was registered. Paths are derived from `src/paths.ts`, which anchors to the repo's own location — but the *registration* still names an absolute path to `src/server/index.ts`, so moving or renaming the repo directory breaks it. Re-run `claude mcp add` with the new path. The server never builds an index on startup.
 
 ## License
 
