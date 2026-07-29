@@ -10,6 +10,30 @@ const meta: TsChunkMeta = {
 };
 
 describe('typescript chunkMarkdown', () => {
+  it('drops a heading with no body of its own but keeps one holding only a code fence', () => {
+    const markdown = `# Generics
+
+## Overview
+
+### Type parameters
+
+Body text about type parameters.
+
+## Example
+
+\`\`\`ts
+function identity<T>(arg: T): T { return arg; }
+\`\`\`
+`;
+    const chunks = chunkMarkdown(markdown, meta);
+
+    expect(chunks.some((c) => c.title === 'Overview')).toBe(false);
+    expect(chunks.some((c) => c.title === 'Type parameters')).toBe(true);
+    const example = chunks.find((c) => c.title === 'Example');
+    expect(example).toBeDefined();
+    expect(example!.content).toContain('function identity<T>');
+  });
+
   it('creates an intro chunk for content before the first ##/### heading', () => {
     const markdown = `# The Basics\n\nIntro paragraph text.\n\n## Static type-checking\n\nBody.\n`;
     const chunks = chunkMarkdown(markdown, meta);

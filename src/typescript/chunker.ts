@@ -1,6 +1,7 @@
 import GithubSlugger from 'github-slugger';
 import { toString as mdastToString } from 'mdast-util-to-string';
 import { remark } from 'remark';
+import { hasBodyAfterHeading } from '../chunk/emptySection.js';
 import type { TsChunk, TsSection } from './types.js';
 
 export interface TsChunkMeta {
@@ -81,6 +82,8 @@ export function chunkMarkdown(markdown: string, meta: TsChunkMeta): TsChunk[] {
     const boundary = boundaries[i];
     const end = i + 1 < boundaries.length ? boundaries[i + 1].offset : markdown.length;
     const content = markdown.slice(boundary.offset, end).trim();
+    if (!hasBodyAfterHeading(content)) continue;
+
     chunks.push({
       id: `typescript/${meta.section}/${meta.fileSlug}#${boundary.slug}`,
       title: boundary.title,

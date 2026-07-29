@@ -136,6 +136,62 @@ Second method.
     expect(ids).toContain('nodejs/api/class-browsercontext#browser-context-wait-for-console-message-1');
   });
 
+  it('drops a structural heading whose section body is empty (e.g. api "## Methods" above its first ###)', () => {
+    const markdown = `# Page
+
+## Methods
+
+### locator {/* #page-locator */}
+
+Returns a locator.
+`;
+    const chunks = chunkMarkdown(markdown, { ...meta, docType: 'api', fileSlug: 'class-page' });
+
+    expect(chunks.some((c) => c.title === 'Methods')).toBe(false);
+    expect(chunks.some((c) => c.title === 'locator')).toBe(true);
+  });
+
+  it('drops a heading whose body is only whitespace', () => {
+    const markdown = `# Page\n\n## Events\n\n   \n\n## Real section\n\nBody text.\n`;
+    const chunks = chunkMarkdown(markdown, meta);
+
+    expect(chunks.some((c) => c.title === 'Events')).toBe(false);
+    expect(chunks.some((c) => c.title === 'Real section')).toBe(true);
+  });
+
+  it('keeps a heading whose body is only a code fence, with no prose', () => {
+    const markdown = `# Page
+
+## Usage
+
+\`\`\`js
+await page.locator('#id').click();
+\`\`\`
+`;
+    const chunks = chunkMarkdown(markdown, meta);
+    const usage = chunks.find((c) => c.title === 'Usage');
+
+    expect(usage).toBeDefined();
+    expect(usage!.content).toContain("await page.locator('#id').click();");
+  });
+
+  it('keeps a heading whose body is a single short sentence', () => {
+    const markdown = `# Page\n\n## Returns\n\nA Locator.\n`;
+    const chunks = chunkMarkdown(markdown, meta);
+
+    expect(chunks.some((c) => c.title === 'Returns')).toBe(true);
+  });
+
+  it('drops a section left empty once its explicit slug comment is stripped', () => {
+    // stripSlugComments runs before the empty check, so a body consisting only
+    // of a Docusaurus slug comment must not read as content.
+    const markdown = `# Page\n\n## Methods {/* #page-methods */}\n\n{/* #stray */}\n\n## Real\n\nBody.\n`;
+    const chunks = chunkMarkdown(markdown, { ...meta, docType: 'api', fileSlug: 'class-page' });
+
+    expect(chunks.some((c) => c.title === 'Methods')).toBe(false);
+    expect(chunks.some((c) => c.title === 'Real')).toBe(true);
+  });
+
   it('produces distinct ids for the same docType/fileSlug/heading across languages', () => {
     const markdown = `# Page\n\n## Methods\n\n### locator {/* #page-locator */}\n\nReturns a locator.\n`;
     const nodejsMeta: ChunkMeta = { ...meta, language: 'nodejs', docType: 'api', fileSlug: 'class-page' };

@@ -1,6 +1,7 @@
 import GithubSlugger from 'github-slugger';
 import { toString as mdastToString } from 'mdast-util-to-string';
 import { remark } from 'remark';
+import { hasBodyAfterHeading } from '../chunk/emptySection.js';
 import type { NodeChunk } from './types.js';
 
 export interface NodeChunkMeta {
@@ -83,9 +84,7 @@ export function chunkMarkdown(markdown: string, meta: NodeChunkMeta): NodeChunk[
     const end = i + 1 < boundaries.length ? boundaries[i + 1].offset : markdown.length;
     const content = markdown.slice(boundary.offset, end).trim();
 
-    const headingLineEnd = content.indexOf('\n');
-    const bodyAfterHeading = headingLineEnd === -1 ? '' : content.slice(headingLineEnd + 1).trim();
-    if (bodyAfterHeading.length === 0) continue;
+    if (!hasBodyAfterHeading(content)) continue;
 
     chunks.push({
       id: `node/${meta.module}#${boundary.slug}`,

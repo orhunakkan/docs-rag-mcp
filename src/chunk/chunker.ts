@@ -2,6 +2,7 @@ import GithubSlugger from 'github-slugger';
 import { toString as mdastToString } from 'mdast-util-to-string';
 import { remark } from 'remark';
 import type { Chunk, DocType, Language } from '../types.js';
+import { hasBodyAfterHeading } from './emptySection.js';
 import { resolveHeading, stripSlugComments } from './slugify.js';
 
 export interface ChunkMeta {
@@ -84,6 +85,10 @@ export function chunkMarkdown(markdown: string, meta: ChunkMeta): Chunk[] {
     const boundary = boundaries[i];
     const end = i + 1 < boundaries.length ? boundaries[i + 1].offset : markdown.length;
     const content = stripSlugComments(markdown.slice(boundary.offset, end)).trim();
+    // Structural headings like `## Methods`, which sit directly above their
+    // first `###` with no prose of their own, carry no retrievable content.
+    if (!hasBodyAfterHeading(content)) continue;
+
     chunks.push({
       id: `${meta.language}/${meta.docType}/${meta.fileSlug}#${boundary.slug}`,
       title: boundary.title,
