@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes the older run's result irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # `engines` says >=20; 24 is what the repo is developed against.
+        node: ['20', '24']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `--ignore-scripts` skips the native postinstall builds (onnxruntime-node,
+      # sharp, esbuild) that `allowScripts` approves locally. Neither the
+      # typecheck nor the unit suite loads a model or runs an ONNX session:
+      # tests/split.test.ts budgets against a stub token counter precisely so it
+      # needs no tokenizer, and the chunker and normalizer tests are pure string
+      # work. Downloading and building those binaries here would buy nothing.
+      - run: npm ci --ignore-scripts
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      # Deliberately not run here: `npm run benchmark`, `npm run probe` and
+      # `npm run reindex`. All three need the search indexes, which are
+      # gitignored and total ~370 MB, and the latter two need the embedding model
+      # as well. Retrieval quality is measured locally and recorded in
+      # RETRIEVAL-PLAN.md; CI's job is to catch a chunker or normalizer change
+      # breaking the unit suite, which is the failure that actually happened
+      # during development.
