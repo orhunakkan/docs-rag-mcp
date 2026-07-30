@@ -1,6 +1,7 @@
 import { search } from '@orama/orama';
 import { embedText } from '../search/embed.js';
-import { dedupeByContent, overfetchLimit } from '../search/dedupe.js';
+import { collapseSiblingParts, dedupeByContent, overfetchLimit } from '../search/dedupe.js';
+import { rerank } from '../search/rerank.js';
 import { DEFAULT_TUNING, type Tuning } from '../search/tuning.js';
 import type { NodeDb } from './buildIndex.js';
 
@@ -26,6 +27,12 @@ export interface NodeSearchResult {
 export async function hybridSearch(db: NodeDb, queryText: string, options: NodeSearchOptions = {}): Promise<NodeSearchResult[]> {
   const limit = options.limit ?? 5;
   const tuning = options.tuning ?? DEFAULT_TUNING;
+  // Retrieval's job here is recall, not precision: gather a pool of candidates,
+  // let the cross-encoder reorder it if enabled, and only then collapse sibling
+  // parts and cut to `limit`. The pool is deliberately wider than `limit` even
+  // with reranking off, because collapsing siblings afterwards would otherwise
+  // under-deliver.
+  const wanted = Math.max(tuning.rerankCandidates, limit);
   const vector = await embedText(queryText);
   const results = await search(db, {
     mode: 'hybrid',
@@ -37,7 +44,7 @@ export async function hybridSearch(db: NodeDb, queryText: string, options: NodeS
     similarity: tuning.similarity,
     hybridWeights: { text: tuning.text, vector: tuning.vector },
     where: options.module ? { module: { eq: options.module } } : undefined,
-    limit: overfetchLimit(limit)
+    limit: overfetchLimit(wanted)
   });
 
   const hits = results.hits.map((hit) => ({
@@ -50,5 +57,7 @@ export async function hybridSearch(db: NodeDb, queryText: string, options: NodeS
     sourceUrl: hit.document.sourceUrl
   }));
 
-  return dedupeByContent(hits, limit);
+  const candidates = dedupeByContent(hits, wanted);
+  const ranked = tuning.rerank ? await rerank(queryText, candidates) : candidates;
+  return collapseSiblingParts(ranked, limit);
 }

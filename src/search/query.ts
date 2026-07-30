@@ -1,7 +1,8 @@
 import { search } from '@orama/orama';
 import type { Db } from './buildIndex.js';
 import { embedText } from './embed.js';
-import { dedupeByContent, overfetchLimit } from './dedupe.js';
+import { collapseSiblingParts, dedupeByContent, overfetchLimit } from './dedupe.js';
+import { rerank } from './rerank.js';
 import { DEFAULT_TUNING, type Tuning } from './tuning.js';
 import type { DocType, Language } from '../types.js';
 
@@ -29,6 +30,12 @@ export interface SearchResult {
 export async function hybridSearch(db: Db, queryText: string, options: SearchOptions = {}): Promise<SearchResult[]> {
   const limit = options.limit ?? 5;
   const tuning = options.tuning ?? DEFAULT_TUNING;
+  // Retrieval's job here is recall, not precision: gather a pool of candidates,
+  // let the cross-encoder reorder it if enabled, and only then collapse sibling
+  // parts and cut to `limit`. The pool is deliberately wider than `limit` even
+  // with reranking off, because collapsing siblings afterwards would otherwise
+  // under-deliver.
+  const wanted = Math.max(tuning.rerankCandidates, limit);
   const vector = await embedText(queryText);
   const where: Record<string, { eq: string }> = {};
   if (options.docType) where.docType = { eq: options.docType };
@@ -46,7 +53,7 @@ export async function hybridSearch(db: Db, queryText: string, options: SearchOpt
     hybridWeights: { text: tuning.text, vector: tuning.vector },
     where: Object.keys(where).length > 0 ? where : undefined,
     // Over-fetch so collapsing identical content can't return fewer than `limit`.
-    limit: overfetchLimit(limit)
+    limit: overfetchLimit(wanted)
   });
 
   const hits = results.hits.map((hit) => ({
@@ -60,5 +67,7 @@ export async function hybridSearch(db: Db, queryText: string, options: SearchOpt
     sourceUrl: hit.document.sourceUrl
   }));
 
-  return dedupeByContent(hits, limit);
+  const candidates = dedupeByContent(hits, wanted);
+  const ranked = tuning.rerank ? await rerank(queryText, candidates) : candidates;
+  return collapseSiblingParts(ranked, limit);
 }

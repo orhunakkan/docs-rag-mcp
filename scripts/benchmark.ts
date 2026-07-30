@@ -3,8 +3,14 @@
  * query kind so a regression on verbose identifier queries can't hide behind
  * strong terse ones.
  *
- *   npm run benchmark              # score the committed tuning
- *   npm run benchmark -- --sweep   # grid over hybridWeights x similarity
+ *   npm run benchmark                 # score the committed tuning
+ *   npm run benchmark -- --no-rerank  # same, with the cross-encoder off
+ *   npm run benchmark -- --sweep      # grid over the tuning, including rerank
+ *
+ * `--no-rerank` is what separates a change to the *index* from a change to the
+ * *ranking*: reranking reorders whatever retrieval surfaces, so with it on, a
+ * chunking improvement and a reranking improvement are indistinguishable.
+ * Combined with `INDEX_SUBDIR` (see src/paths.ts) it gives one row per change.
  *
  * The sweep exists because the committed `hybridWeights` / `similarity` were
  * set by spot-checking, and this is the measurement that should justify any
@@ -37,6 +43,8 @@ interface Scored {
   /** 1-based rank of the first correct hit, or 0 if absent from the top LIMIT. */
   rank: number;
   top: string;
+  /** Wall-clock ms for the whole call, so reranking's cost is visible. */
+  ms: number;
 }
 
 interface Metrics {
@@ -67,9 +75,11 @@ type Runner = (query: string, opts: Record<string, unknown>, tuning: Tuning) => 
 async function runCorpus(name: string, queries: BenchmarkQuery[], run: Runner, tuning: Tuning): Promise<Scored[]> {
   const rows: Scored[] = [];
   for (const q of queries) {
+    const started = performance.now();
     const results = await run(q.query, { limit: LIMIT, language: q.language, docType: q.docType }, tuning);
+    const ms = performance.now() - started;
     const idx = results.findIndex((r) => matchesLabel(r.sourceUrl, q.expect));
-    rows.push({ query: q, rank: idx === -1 ? 0 : idx + 1, top: results[0]?.title ?? '(none)' });
+    rows.push({ query: q, rank: idx === -1 ? 0 : idx + 1, top: results[0]?.title ?? '(none)', ms });
   }
   return rows;
 }
@@ -120,10 +130,15 @@ async function main() {
   ];
 
   if (!sweep) {
-    console.log(`Committed tuning: text ${DEFAULT_TUNING.text} / vector ${DEFAULT_TUNING.vector}, similarity ${DEFAULT_TUNING.similarity}`);
+    const tuning: Tuning = process.argv.includes('--no-rerank') ? { ...DEFAULT_TUNING, rerank: false } : DEFAULT_TUNING;
+    const rerank = tuning.rerank ? `on, ${tuning.rerankCandidates} candidates` : 'off';
+    console.log(
+      `Tuning: text ${tuning.text} / vector ${tuning.vector}, similarity ${tuning.similarity}, titleBoost ${tuning.titleBoost}, rerank ${rerank}`
+    );
+    console.log(`Index: ${process.env.INDEX_SUBDIR ? `data/index/${process.env.INDEX_SUBDIR}` : 'data/index'}`);
     const all: Scored[] = [];
     for (const [name, queries, run] of corpora) {
-      const rows = await runCorpus(name, queries, run, DEFAULT_TUNING);
+      const rows = await runCorpus(name, queries, run, tuning);
       reportCorpus(name, rows);
       all.push(...rows);
     }
@@ -132,20 +147,33 @@ async function main() {
     // pooled groups are what a change to chunking or reranking is judged on.
     console.log('\nOVERALL');
     reportGroups(all);
+
+    // Latency per call, which is what a `rerank: true` default has to justify.
+    // The first call of the run pays for loading the models, so the median is
+    // the honest steady-state figure and the max is reported alongside it.
+    const times = all.map((r) => r.ms).sort((a, b) => a - b);
+    const median = times[Math.floor(times.length / 2)];
+    console.log(`\n  latency  median ${median.toFixed(0)}ms  p95 ${times[Math.floor(times.length * 0.95)].toFixed(0)}ms  max ${times[times.length - 1].toFixed(0)}ms  (first call includes model load)`);
     return;
   }
 
   const grid: Tuning[] = [];
   for (const text of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
     for (const similarity of [0.05, 0.1, 0.2]) {
-      grid.push({ text, vector: Number((1 - text).toFixed(2)), similarity, titleBoost: DEFAULT_TUNING.titleBoost });
+      grid.push({ ...DEFAULT_TUNING, text, vector: Number((1 - text).toFixed(2)), similarity });
     }
   }
   for (const titleBoost of [1, 3, 6]) {
-    grid.push({ text: 0.5, vector: 0.5, similarity: 0.1, titleBoost });
+    grid.push({ ...DEFAULT_TUNING, text: 0.5, vector: 0.5, similarity: 0.1, titleBoost });
   }
+  // The reranker reorders whatever the retriever surfaces, so the two interact:
+  // the hybrid weights that are best without it need not be best with it.
+  for (const rerankCandidates of [10, 25, 40]) {
+    grid.push({ ...DEFAULT_TUNING, rerankCandidates });
+  }
+  grid.push({ ...DEFAULT_TUNING, rerank: false });
 
-  console.log('text/vec  sim  tb |  all r@1  verbose r@1  verbose MRR  natural r@1 |  overall MRR');
+  console.log('text/vec  sim  tb  rr |  all r@1  verbose r@1  verbose MRR  natural r@1 |  overall MRR');
   const results: Array<{ t: Tuning; overallMrr: number; verboseR1: number; line: string }> = [];
 
   for (const tuning of grid) {
@@ -157,7 +185,8 @@ async function main() {
     const o = score(all);
     const v = score(verbose);
     const nat = score(natural);
-    const line = `${tuning.text}/${tuning.vector}  ${String(tuning.similarity).padEnd(4)} ${String(tuning.titleBoost).padStart(2)} |    ${pct(o.recall1)}       ${pct(v.recall1)}       ${v.mrr.toFixed(3)}        ${pct(nat.recall1)}  |     ${o.mrr.toFixed(3)}`;
+    const rr = tuning.rerank ? String(tuning.rerankCandidates).padStart(3) : ' off';
+    const line = `${tuning.text}/${tuning.vector}  ${String(tuning.similarity).padEnd(4)} ${String(tuning.titleBoost).padStart(2)} ${rr} |    ${pct(o.recall1)}       ${pct(v.recall1)}       ${v.mrr.toFixed(3)}        ${pct(nat.recall1)}  |     ${o.mrr.toFixed(3)}`;
     console.log(line);
     results.push({ t: tuning, overallMrr: o.mrr, verboseR1: v.recall1, line });
   }

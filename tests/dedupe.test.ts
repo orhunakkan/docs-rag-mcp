@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dedupeByContent, overfetchLimit } from '../src/search/dedupe.js';
+import { collapseSiblingParts, dedupeByContent, overfetchLimit } from '../src/search/dedupe.js';
 
 const hit = (content: string, sourceUrl: string, score: number) => ({ content, sourceUrl, score });
 
@@ -83,5 +83,53 @@ describe('dedupeByContent', () => {
 
     expect(results).toHaveLength(1);
     expect(results[0].alsoAt).toBeUndefined();
+  });
+
+  it('leaves sibling parts of one section alone — that is collapseSiblingParts job', () => {
+    // These reach the reranker as separate candidates on purpose: narrowing the
+    // pool to one chunk per section before reranking measurably cost recall.
+    const results = dedupeByContent(
+      [hit('part one', 'class-page#page-screenshot', 9), hit('part two', 'class-page#page-screenshot', 8)],
+      5
+    );
+
+    expect(results).toHaveLength(2);
+  });
+});
+
+describe('collapseSiblingParts', () => {
+  it('keeps one result per section, in the order it was given', () => {
+    // What the embedding-window cap produces: one heading section as several
+    // overlapping chunks, all citing the same anchor.
+    const results = collapseSiblingParts(
+      [
+        hit('part two of the screenshot options', 'docs/api/class-page#page-screenshot', 9),
+        hit('part one of the screenshot options', 'docs/api/class-page#page-screenshot', 8),
+        hit('the emulation guide', 'docs/emulation#viewport', 7)
+      ],
+      5
+    );
+
+    expect(results.map((r) => r.sourceUrl)).toEqual(['docs/api/class-page#page-screenshot', 'docs/emulation#viewport']);
+    // The caller's ordering decides which part represents the section, so after
+    // reranking that is the best-matching part rather than the earliest one.
+    expect(results[0].content).toBe('part two of the screenshot options');
+  });
+
+  it('fills the requested limit with distinct sections rather than one section parts', () => {
+    const hits = [
+      hit('a1', 'section-a', 10),
+      hit('a2', 'section-a', 9),
+      hit('a3', 'section-a', 8),
+      hit('b1', 'section-b', 7),
+      hit('c1', 'section-c', 6)
+    ];
+
+    expect(collapseSiblingParts(hits, 3).map((r) => r.sourceUrl)).toEqual(['section-a', 'section-b', 'section-c']);
+  });
+
+  it('preserves alsoAt annotations added by the content pass', () => {
+    const withSiblings = { ...hit('body', 'class-page#x', 9), alsoAt: ['class-frame#x'] };
+    expect(collapseSiblingParts([withSiblings], 5)[0].alsoAt).toEqual(['class-frame#x']);
   });
 });

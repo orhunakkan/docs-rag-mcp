@@ -20,11 +20,25 @@ export interface Tuning {
   similarity: number;
   /** Multiplier on text matches in the `title` property. */
   titleBoost: number;
+  /**
+   * Reorder the candidates with a cross-encoder before returning them. A switch
+   * rather than a hardcoded step so `scripts/benchmark.ts` can A/B it, and so it
+   * can be turned off if the added latency is ever unacceptable.
+   */
+  rerank: boolean;
+  /**
+   * How many deduped candidates to hand the reranker, independent of `limit` —
+   * a reranker given 5 candidates can only reorder 5. Ignored when `rerank` is
+   * false. Raising it costs one forward pass per extra candidate.
+   */
+  rerankCandidates: number;
 }
 
 export const DEFAULT_TUNING: Tuning = {
   text: 0.3,
   vector: 0.7,
   similarity: 0.1,
-  titleBoost: 3
+  titleBoost: 3,
+  rerank: true,
+  rerankCandidates: 25
 };
