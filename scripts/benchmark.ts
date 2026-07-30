@@ -22,10 +22,12 @@ import type { Tuning } from '../src/search/tuning.js';
 import { DEFAULT_TUNING } from '../src/search/tuning.js';
 import {
   javascriptQueries,
+  matchesLabel,
   nodeQueries,
   playwrightQueries,
   typescriptQueries,
-  type BenchmarkQuery
+  type BenchmarkQuery,
+  type QueryKind
 } from '../tests/fixtures/benchmark-queries.js';
 
 const LIMIT = 5;
@@ -66,32 +68,37 @@ async function runCorpus(name: string, queries: BenchmarkQuery[], run: Runner, t
   const rows: Scored[] = [];
   for (const q of queries) {
     const results = await run(q.query, { limit: LIMIT, language: q.language, docType: q.docType }, tuning);
-    const wanted = (Array.isArray(q.expect) ? q.expect : [q.expect]).map((e) => e.toLowerCase());
-    const idx = results.findIndex((r) => wanted.some((w) => r.sourceUrl.toLowerCase().includes(w)));
+    const idx = results.findIndex((r) => matchesLabel(r.sourceUrl, q.expect));
     rows.push({ query: q, rank: idx === -1 ? 0 : idx + 1, top: results[0]?.title ?? '(none)' });
   }
   return rows;
 }
 
-function reportCorpus(name: string, rows: Scored[]): void {
-  const terse = rows.filter((r) => !r.query.pairOf && !r.query.id.includes('-nl-'));
-  const verbose = rows.filter((r) => r.query.pairOf);
-  const natural = rows.filter((r) => r.query.id.includes('-nl-'));
+/** Grouping is driven by `kind`, never by sniffing `id` — see the fixture header. */
+function byKind(rows: Scored[], kind: QueryKind): Scored[] {
+  return rows.filter((r) => r.query.kind === kind);
+}
 
-  console.log(`\n${name}`);
-  console.log('  group              n   r@1   r@3   r@5    MRR');
+function reportGroups(rows: Scored[], indent = '  '): void {
+  console.log(`${indent}group              n   r@1   r@3   r@5    MRR`);
   for (const [label, group] of [
     ['all', rows],
-    ['identifier (terse)', terse],
-    ['identifier (verbose)', verbose],
-    ['natural language', natural]
+    ['identifier (terse)', byKind(rows, 'terse')],
+    ['identifier (verbose)', byKind(rows, 'verbose')],
+    ['natural language', byKind(rows, 'natural')],
+    ['language filter', byKind(rows, 'filter')]
   ] as const) {
     if (group.length === 0) continue;
     const m = score(group);
     console.log(
-      `  ${label.padEnd(20)} ${String(m.n).padStart(2)}  ${pct(m.recall1)}  ${pct(m.recall3)}  ${pct(m.recall5)}  ${m.mrr.toFixed(3)}`
+      `${indent}${label.padEnd(20)} ${String(m.n).padStart(3)}  ${pct(m.recall1)}  ${pct(m.recall3)}  ${pct(m.recall5)}  ${m.mrr.toFixed(3)}`
     );
   }
+}
+
+function reportCorpus(name: string, rows: Scored[]): void {
+  console.log(`\n${name}`);
+  reportGroups(rows);
 
   const misses = rows.filter((r) => r.rank === 0);
   if (misses.length > 0) {
@@ -120,10 +127,11 @@ async function main() {
       reportCorpus(name, rows);
       all.push(...rows);
     }
-    const overall = score(all);
-    console.log(
-      `\nOVERALL  n=${overall.n}  r@1 ${pct(overall.recall1)}  r@3 ${pct(overall.recall3)}  r@5 ${pct(overall.recall5)}  MRR ${overall.mrr.toFixed(3)}`
-    );
+    // Grouped overall as well as per corpus: the per-corpus groups are small
+    // enough (7-11 queries) that one query moves them 9-14 points, so the
+    // pooled groups are what a change to chunking or reranking is judged on.
+    console.log('\nOVERALL');
+    reportGroups(all);
     return;
   }
 
@@ -144,8 +152,8 @@ async function main() {
     const all: Scored[] = [];
     for (const [name, queries, run] of corpora) all.push(...(await runCorpus(name, queries, run, tuning)));
 
-    const verbose = all.filter((r) => r.query.pairOf);
-    const natural = all.filter((r) => r.query.id.includes('-nl-'));
+    const verbose = all.filter((r) => r.query.kind === 'verbose');
+    const natural = all.filter((r) => r.query.kind === 'natural');
     const o = score(all);
     const v = score(verbose);
     const nat = score(natural);

@@ -1,7 +1,8 @@
 # Retrieval quality plan
 
-Status: **not started.** Written 2026-07-29 after a measurement session. Nothing
-in here has been implemented.
+Status: **step 1 complete.** Written 2026-07-29 after a measurement session;
+being executed in the same session. Progress and measured results are recorded
+per step below.
 
 ## Why this exists
 
@@ -90,7 +91,7 @@ current chunking*. Step 5 revisits this because steps 2–4 change the inputs.
 
 ---
 
-## Step 1 — Make the benchmark trustworthy
+## Step 1 — Make the benchmark trustworthy — **done**
 
 **Nothing below can be judged until this is done.** Labels are URL substrings,
 so a correct answer living at a different URL scores as a failure. Three
@@ -122,6 +123,73 @@ README are therefore pessimistic, including the widely-quoted 38%.
 Re-run `npm run benchmark`. Expect overall r@1 to rise purely from label
 correctness — that rise is measurement error being removed, not improvement, and
 must be described as such. Record the new baseline in this file.
+
+### Outcome — the prediction above was wrong in sign
+
+**r@1 fell, 78% → 60%.** The step was written expecting labels to be uniformly
+too strict. Inspecting all 64 top-5s found the opposite error dominating: labels
+were, on net, too *loose*. Both errors were real and both were corrected.
+
+- **Too strict, corrected upward** — the three predicted cases
+  (`js-optional-chaining`, `js-spread`, `ts-utility`) all held up on reading, plus
+  four more found by inspection: `ts-keyof-verbose`, `ts-narrowing-verbose`,
+  `js-generator`, `nd-nl-delay` (Node documents `setTimeout` twice, and the
+  timers-only label rejected the `globals.html` copy).
+- **Too loose, corrected downward** — every Node label named a *module*
+  (`fs.html`), so `fs.readFile` scored rank 1 on `fs.html#fsfsyncsyncfd` and
+  `worker_threads Worker` on `worker_threads.html#worker_threadsthreadName`. The
+  fixture's own header already said a label "should name the anchor that uniquely
+  identifies the right chunk"; Node's labels never did. Node's r@1 is 92% under
+  module labels and 50% under anchor labels, measuring the same index. Playwright
+  and TypeScript had page-level versions of the same defect (`parallel` credited
+  `class-testinfo#test-info-parallel-index`; `unions` credited every release note
+  mentioning a union).
+- **A substring bug** — `Array/reduce` is a substring of `Array/reduceRight`,
+  which was ranking #1 and scoring as a hit for "Array.prototype.reduce". Labels
+  can now end in `$` to anchor to the end of the URL, which also makes a page's
+  `_intro` chunk nameable for the first time.
+- **Mis-grouping** — the report split groups by testing `id.includes('-nl-')`.
+  That counted `js-closures` ("how do closures work") as an identifier lookup and
+  put the three language-filter probes in with the terse identifiers. Queries now
+  carry an explicit `kind`, and the report groups on it.
+
+None of the five known genuine defects started passing: `pw-nl-auth`,
+`nd-nl-http-server` and `js-tempdead` still miss the top 5 entirely, and
+`pw-nl-mask` and `ts-nl-interface` still fail at rank 1 (both rank 4).
+
+Coverage went 64 → 102 queries, and natural-language coverage 10 → 33, which was
+the point: TypeScript, JavaScript and Node had one such query each and now have
+7, 7 and 8.
+
+### New baseline — this is what steps 2-6 must beat
+
+`npm run benchmark`, unchanged index, unchanged tuning (`text 0.3 / vector 0.7`,
+`similarity 0.1`, `titleBoost 3`):
+
+| corpus | n | r@1 | r@3 | r@5 | MRR |
+|---|---:|---:|---:|---:|---:|
+| playwright | 31 | 68% | 81% | 97% | 0.765 |
+| typescript | 24 | 50% | 71% | 88% | 0.618 |
+| javascript | 23 | 70% | 83% | 96% | 0.786 |
+| node-runtime | 24 | 50% | 58% | 79% | 0.576 |
+| **overall** | **102** | **60%** | **74%** | **90%** | **0.691** |
+
+Pooled across corpora by query kind — the per-corpus groups are 7-11 queries, so
+one query moves them 9-14 points and the pooled numbers are the ones to watch:
+
+| kind | n | r@1 | r@3 | r@5 | MRR |
+|---|---:|---:|---:|---:|---:|
+| identifier (terse) | 40 | 78% | 88% | 95% | 0.833 |
+| identifier (verbose) | 26 | 50% | 69% | 92% | 0.626 |
+| natural language | 33 | 42% | 58% | 82% | 0.540 |
+| language filter | 3 | 100% | 100% | 100% | 1.000 |
+
+The r@1 → r@5 gap that step 4 targets is now 60% → 90%, and it is widest exactly
+where the plan predicted: natural language, 42% → 82%.
+
+`npm run inspect` was added to make this step repeatable — it prints the top-N
+with the label's match marked, per query or ad hoc, which is what distinguishes a
+wrong label from a wrong result.
 
 **Cost:** no resync. Judgement-heavy, no technical risk.
 

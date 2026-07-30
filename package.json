@@ -16,6 +16,7 @@
     "sync:node": "tsx scripts/sync-node.ts",
     "mcp": "tsx src/server/index.ts",
     "benchmark": "tsx scripts/benchmark.ts",
+    "inspect": "tsx scripts/inspect.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
