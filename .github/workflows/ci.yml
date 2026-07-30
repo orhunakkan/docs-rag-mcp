@@ -41,7 +41,7 @@ jobs:
 
       # Deliberately not run here: `npm run benchmark`, `npm run probe` and
       # `npm run reindex`. All three need the search indexes, which are
-      # gitignored and total ~370 MB, and the latter two need the embedding model
+      # gitignored and total ~327 MB, and the latter two need the embedding model
       # as well. Retrieval quality is measured locally and recorded in
       # RETRIEVAL-PLAN.md; CI's job is to catch a chunker or normalizer change
       # breaking the unit suite, which is the failure that actually happened

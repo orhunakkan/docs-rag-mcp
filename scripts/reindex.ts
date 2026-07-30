@@ -25,6 +25,11 @@
  * the sync wrote from the URL it chunked with — and `fileSlug` from the
  * filename, which the sync derived with `flattenRelPath`. So ids and URLs come
  * out identical to a sync's; `npm run probe` cross-checks the chunk counts.
+ *
+ * This deliberately does not touch `data/sync-meta*.json`. Those record which
+ * upstream commit the *corpus* came from, which a reindex does not change — but
+ * it does mean their `chunkCount` goes stale after a chunker change until the
+ * next real sync. `npm run probe` is the live answer for chunk counts.
  */
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';

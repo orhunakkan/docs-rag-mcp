@@ -68,7 +68,7 @@ once and reuse the session" absent from the top 5 → 5.
 
 ### Cost
 
-- 22,394 heading sections → 30,309 indexed chunks (+35%); indexes total ~370 MB.
+- 22,394 heading sections → 30,309 indexed chunks (+35%); indexes total ~327 MB, up from ~259 MB.
 - One extra ~23 MB model download for the reranker.
 - Median query latency 13 ms → 439 ms, entirely the reranker's ~25 forward
   passes. `rerank: false` in `src/search/tuning.ts` reverts that at the cost of
@@ -679,7 +679,7 @@ neither the typecheck nor the unit suite loads a model or runs an ONNX session �
 does not need a tokenizer, and `tests/rerank.test.ts` only exercises the paths
 that return before the model loads. Verified by running both steps against a
 clean `--ignore-scripts` install rather than assuming. The benchmark, probe and
-reindex are all excluded: they need the indexes (gitignored, ~370 MB) and two of
+reindex are all excluded: they need the indexes (gitignored, ~327 MB) and two of
 them need the model.
 
 **Model swap — evaluated and declined, with the numbers.** Both candidates were
