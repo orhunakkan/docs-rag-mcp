@@ -15,7 +15,21 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = join(HERE, '..');
 
 export const DATA_DIR = join(REPO_ROOT, 'data');
-export const INDEX_DIR = join(DATA_DIR, 'index');
+
+/**
+ * `INDEX_SUBDIR` moves every index into a subdirectory of `data/index`, so a
+ * candidate index can be built and benchmarked without overwriting the one the
+ * MCP server is serving:
+ *
+ *   INDEX_SUBDIR=ab npm run reindex -- --no-prefix
+ *   INDEX_SUBDIR=ab npm run benchmark
+ *
+ * Unset, which is the normal case, it resolves to `data/index` exactly as before.
+ * It is read once at module load, so it applies uniformly to whichever process
+ * sets it — including the server, which is the reason it is opt-in rather than a
+ * flag on one script.
+ */
+export const INDEX_DIR = join(DATA_DIR, 'index', process.env.INDEX_SUBDIR ?? '');
 export const DOCS_DIR = join(REPO_ROOT, 'docs');
 export const MODEL_CACHE_DIR = join(REPO_ROOT, '.cache', 'models');
 

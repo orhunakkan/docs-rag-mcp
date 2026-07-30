@@ -2,6 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DATA_DIR, toRepoRelative } from '../src/paths.js';
 import { chunkMarkdown } from '../src/node/chunker.js';
+import { splitChunks } from '../src/chunk/split.js';
+import { createTokenCounter } from '../src/search/embed.js';
 import { cleanupClone, cloneDocsRepo } from '../src/ingest/clone.js';
 import { normalizeNodeDoc } from '../src/node/normalize.js';
 import { buildFileContent, writeNormalizedFile } from '../src/ingest/write.js';
@@ -40,10 +42,15 @@ async function main() {
     await cleanupClone(repoPath);
   }
 
-  console.log(`Chunked into ${allChunks.length} chunk(s) total. Embedding + indexing...`);
+  // Cap every chunk at the embedding window before indexing: heading slices
+  // run far past it, and the overflow is truncated silently. See
+  // src/chunk/split.ts.
+  const chunks = splitChunks(allChunks, await createTokenCounter());
+  const added = chunks.length - allChunks.length;
+  console.log(`Chunked into ${allChunks.length} heading section(s); ${chunks.length} chunks after splitting oversized ones (+${added}). Embedding + indexing...`);
 
   const db = createDb();
-  await indexChunks(db, allChunks);
+  await indexChunks(db, chunks);
   await persistIndex(db);
 
   const meta: NodeSyncMeta = {
@@ -51,7 +58,7 @@ async function main() {
     tag: NODE_TAG,
     syncedAt: new Date().toISOString(),
     docCount,
-    chunkCount: allChunks.length
+    chunkCount: chunks.length
   };
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(join(DATA_DIR, 'sync-meta-node.json'), JSON.stringify(meta, null, 2), 'utf8');
@@ -60,7 +67,7 @@ async function main() {
   console.log(`  tag: ${NODE_TAG}`);
   console.log(`  commit: ${commitSha}`);
   console.log(`  docs: ${docCount}`);
-  console.log(`  chunks: ${allChunks.length}`);
+  console.log(`  chunks: ${chunks.length} (${allChunks.length} heading sections, capped at the embedding window)`);
 }
 
 main().catch((err) => {

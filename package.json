@@ -17,6 +17,8 @@
     "mcp": "tsx src/server/index.ts",
     "benchmark": "tsx scripts/benchmark.ts",
     "inspect": "tsx scripts/inspect.ts",
+    "probe": "tsx scripts/probe-chunks.ts",
+    "reindex": "tsx scripts/reindex.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

@@ -2,6 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DATA_DIR, toRepoRelative } from '../src/paths.js';
 import { chunkMarkdown } from '../src/chunk/chunker.js';
+import { splitChunks } from '../src/chunk/split.js';
+import { createTokenCounter } from '../src/search/embed.js';
 import { cleanupClone, cloneDocsRepo } from '../src/ingest/clone.js';
 import { normalizeMdx } from '../src/ingest/normalize.js';
 import { PLAYWRIGHT_DEV_REPO, SOURCES } from '../src/ingest/sources.js';
@@ -50,10 +52,15 @@ async function main() {
     await cleanupClone(repoPath);
   }
 
-  console.log(`Chunked into ${allChunks.length} chunk(s) total. Embedding + indexing...`);
+  // Cap every chunk at the embedding window before indexing: heading slices
+  // run far past it, and the overflow is truncated silently. See
+  // src/chunk/split.ts.
+  const chunks = splitChunks(allChunks, await createTokenCounter());
+  const added = chunks.length - allChunks.length;
+  console.log(`Chunked into ${allChunks.length} heading section(s); ${chunks.length} chunks after splitting oversized ones (+${added}). Embedding + indexing...`);
 
   const db = createDb();
-  await indexChunks(db, allChunks);
+  await indexChunks(db, chunks);
   await persistIndex(db);
 
   const docCount = Object.values(counts)
@@ -64,7 +71,7 @@ async function main() {
     commitSha,
     syncedAt: new Date().toISOString(),
     docCount,
-    chunkCount: allChunks.length,
+    chunkCount: chunks.length,
     counts
   };
   await mkdir(DATA_DIR, { recursive: true });
@@ -73,7 +80,7 @@ async function main() {
   console.log('Sync complete.');
   console.log(`  commit: ${commitSha}`);
   console.log(`  docs: ${docCount} ${JSON.stringify(counts)}`);
-  console.log(`  chunks: ${allChunks.length}`);
+  console.log(`  chunks: ${chunks.length} (${allChunks.length} heading sections, capped at the embedding window)`);
 }
 
 main().catch((err) => {
