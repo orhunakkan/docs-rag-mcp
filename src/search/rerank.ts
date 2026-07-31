@@ -13,7 +13,8 @@
  * through the model *together*, so every layer can attend across the pair. It is
  * far too slow to run over a whole corpus and exactly right for 25 candidates.
  *
- * Worked example, the `mask` defect from RETRIEVAL-PLAN.md: for "how do I mask
+ * Worked example, the `mask` defect (see `pw-nl-mask` in the benchmark fixtures):
+ * for "how do I mask
  * elements in a screenshot comparison" the cross-encoder scores the
  * `toHaveScreenshot` options at +1.19 and the `Attachments` page — which never
  * says "mask" and which hybrid search ranked #1 — at -11.41.

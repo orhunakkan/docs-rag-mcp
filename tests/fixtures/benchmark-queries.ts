@@ -223,7 +223,7 @@ export const playwrightQueries: BenchmarkQuery[] = [
   },
   {
     id: 'pw-nl-mask',
-    // Failed in real use; added per RETRIEVAL-PLAN.md step 1.4. The `mask` and
+    // Failed in real use before the embedding-window cap. The `mask` and
     // `maskColor` options sit ~1,400 and ~1,585 chars into the
     // `toHaveScreenshot` chunks, i.e. at and past the embedding window.
     query: 'how do I mask elements in a screenshot comparison',

@@ -47,7 +47,7 @@ export const DEFAULT_TUNING: Tuning = {
   // all changed what these weights are balancing. Re-sweeping afterwards moved
   // the optimum to an even split: recall@1 70% -> 71%, MRR 0.789 -> 0.799, and
   // verbose-identifier recall@1 54% -> 58%, with natural-language recall
-  // unchanged. See the sweep table in RETRIEVAL-PLAN.md step 5.
+  // unchanged. See the sweep findings in the README's design notes.
   text: 0.5,
   vector: 0.5,
   similarity: 0.1,
